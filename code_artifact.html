@@ -1,0 +1,550 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 실시간 해외 항공권 추천 시스템</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Font Awesome (아이콘용) -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght=300;400;500;700;900&display=swap');
+        body {
+            font-family: 'Noto Sans KR', sans-serif;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 min-h-screen flex flex-col">
+
+    <!-- 헤더 영역 -->
+    <header class="bg-gradient-to-r from-blue-600 to-indigo-700 text-white shadow-lg">
+        <div class="max-w-6xl mx-auto px-4 py-6 flex flex-col md:flex-row justify-between items-center gap-4">
+            <div class="flex items-center gap-3">
+                <div class="bg-white text-blue-600 p-2.5 rounded-2xl shadow-md">
+                    <i class="fa-solid fa-plane-departure text-2xl"></i>
+                </div>
+                <div>
+                    <h1 class="text-2xl font-bold tracking-tight">에어스캐너 (Air Scanner)</h1>
+                    <p class="text-xs text-blue-100">가장 저렴한 일정 맞춤 왕복 항공권 검색기</p>
+                </div>
+            </div>
+            <div class="text-xs bg-blue-500/30 px-3 py-1.5 rounded-full border border-blue-400/30 text-blue-100">
+                <i class="fa-solid fa-circle-check mr-1 text-emerald-400"></i> 실시간 최저가 엔진 작동 중
+            </div>
+        </div>
+    </header>
+
+    <!-- 메인 컨텐츠 -->
+    <main class="flex-grow max-w-6xl w-full mx-auto px-4 py-8">
+        <!-- 상단 입력 카드 -->
+        <section class="bg-white rounded-3xl shadow-xl p-6 md:p-8 mb-8 border border-slate-100">
+            <h2 class="text-xl font-bold mb-6 text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-calendar-days text-blue-600"></i>
+                여행 일정을 선택해 주세요
+            </h2>
+            
+            <div class="grid grid-cols-1 md:grid-cols-5 gap-4 items-end">
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-slate-500 mb-2">출발일 (YYYY.MM.DD)</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                            <i class="fa-regular fa-calendar-plus"></i>
+                        </span>
+                        <input type="date" id="startDate" class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-slate-700 font-medium">
+                    </div>
+                </div>
+                
+                <div class="flex justify-center items-center py-2 md:py-0 md:col-span-1 text-slate-400 font-bold">
+                    <span class="hidden md:inline text-xl">~</span>
+                    <span class="md:hidden text-sm bg-slate-100 px-4 py-1 rounded-full"><i class="fa-solid fa-arrow-down mr-1"></i> 그리고</span>
+                </div>
+
+                <div class="md:col-span-2">
+                    <label class="block text-sm font-medium text-slate-500 mb-2">도착일 (YYYY.MM.DD)</label>
+                    <div class="relative">
+                        <span class="absolute inset-y-0 left-0 flex items-center pl-3.5 pointer-events-none text-slate-400">
+                            <i class="fa-regular fa-calendar-check"></i>
+                        </span>
+                        <input type="date" id="endDate" class="w-full pl-10 pr-4 py-3 border border-slate-200 rounded-2xl focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 transition-all text-slate-700 font-medium">
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6 flex justify-end">
+                <button onclick="searchDestinations()" class="w-full md:w-auto bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white font-bold px-8 py-4 rounded-2xl shadow-lg shadow-blue-500/20 transition-all duration-200 flex items-center justify-center gap-2 transform active:scale-95">
+                    <i class="fa-solid fa-magnifying-glass"></i>
+                    최저가 항공권 15곳 추천받기
+                </button>
+            </div>
+        </section>
+
+        <!-- 로딩 상태 -->
+        <div id="loadingState" class="hidden my-16 text-center">
+            <div class="inline-block animate-spin rounded-full h-12 w-12 border-4 border-blue-500 border-t-transparent mb-4"></div>
+            <p class="text-slate-600 font-medium">실시간 최적의 항공 동선과 요금을 분석하고 있습니다...</p>
+        </div>
+
+        <!-- 결과 영역 -->
+        <section id="resultsSection" class="hidden">
+            <div class="flex flex-col md:flex-row md:items-center justify-between mb-6 gap-2">
+                <div>
+                    <h3 class="text-2xl font-bold text-slate-800 flex items-center gap-2">
+                        <span class="bg-blue-100 text-blue-700 text-xs font-black uppercase px-2.5 py-1 rounded-md">Result</span>
+                        최저가 순 왕복 항공권 15
+                    </h3>
+                    <p class="text-sm text-slate-500 mt-1" id="searchPeriodText"></p>
+                </div>
+                <span class="text-xs text-slate-400 self-start md:self-center bg-slate-100 px-3 py-1.5 rounded-full">
+                    <i class="fa-solid fa-circle-info mr-1"></i>유류할증료 및 제반 세금 포함 가격입니다.
+                </span>
+            </div>
+
+            <!-- 추천 목록 (카드 리스트) -->
+            <div class="space-y-6" id="destinationsList">
+                <!-- 여기에 추천 카드가 동적으로 주입됩니다. -->
+            </div>
+        </section>
+
+        <!-- 초기 빈 화면 상태 안내 -->
+        <section id="emptyState" class="bg-white rounded-3xl border border-dashed border-slate-200 py-16 px-6 text-center shadow-sm">
+            <div class="bg-blue-50 text-blue-600 w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl">
+                <i class="fa-solid fa-earth-asia"></i>
+            </div>
+            <h3 class="text-lg font-bold text-slate-700 mb-2">어디로 떠나고 싶으신가요?</h3>
+            <p class="text-slate-400 max-w-md mx-auto text-sm">출발일과 도착일을 설정하시면, 해당 기간에 가장 가성비 넘치는 왕복 항공권 최저가 15개 노선을 바로 매칭해 드립니다.</p>
+        </section>
+    </main>
+
+    <!-- 에러 모달 -->
+    <div id="errorModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-red-500/10">
+            <div class="flex items-center gap-3 text-red-500 mb-4">
+                <div class="bg-red-50 p-2.5 rounded-2xl">
+                    <i class="fa-solid fa-triangle-exclamation text-xl"></i>
+                </div>
+                <h3 class="font-bold text-lg text-slate-800">일정 확인 필요</h3>
+            </div>
+            <p id="errorText" class="text-slate-600 text-sm leading-relaxed mb-6"></p>
+            <button onclick="closeErrorModal()" class="w-full bg-slate-800 text-white hover:bg-slate-900 font-bold py-3.5 rounded-xl transition-colors">
+                확인했습니다
+            </button>
+        </div>
+    </div>
+
+    <!-- 실제 예약 사이트 이동 모달 -->
+    <div id="bookingModal" class="fixed inset-0 bg-slate-900/60 backdrop-blur-sm hidden flex items-center justify-center z-50 p-4">
+        <div class="bg-white rounded-3xl max-w-md w-full p-6 shadow-2xl border border-blue-500/10">
+            <div class="flex items-center gap-3 text-blue-600 mb-4">
+                <div class="bg-blue-50 p-2.5 rounded-2xl">
+                    <i class="fa-solid fa-plane-circle-check text-xl"></i>
+                </div>
+                <h3 class="font-bold text-lg text-slate-800">실시간 항공권 비교 예약</h3>
+            </div>
+            <p id="bookingText" class="text-slate-600 text-sm leading-relaxed mb-6"></p>
+            
+            <div class="space-y-3">
+                <button id="naverBtn" class="w-full bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-paper-plane"></i> 네이버 항공권에서 이 조건으로 검색
+                </button>
+                <button id="googleBtn" class="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 px-4 rounded-xl transition-colors flex items-center justify-center gap-2">
+                    <i class="fa-solid fa-globe"></i> 구글 플라이트에서 이 조건으로 검색
+                </button>
+                <button onclick="closeBookingModal()" class="w-full bg-slate-100 hover:bg-slate-200 text-slate-500 font-semibold py-3 rounded-xl transition-colors">
+                    창 닫기
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 푸터 -->
+    <footer class="bg-slate-950 text-slate-400 py-10 mt-12 border-t border-slate-800">
+        <div class="max-w-6xl mx-auto px-4 text-center text-xs md:text-sm">
+            <p class="font-semibold text-slate-300">실시간 맞춤 여행 설계 프로그램 © 2026</p>
+            <p class="mt-2 text-slate-500">본 시스템은 전 세계 공항 노선 데이터베이스 및 모의 가격 산정 알고리즘을 사용하여 일정별 최적의 추천 결과를 제공합니다.</p>
+        </div>
+    </footer>
+
+    <!-- 자바스크립트 프로그램 소스 -->
+    <script>
+        // 현재 날짜를 기본값으로 세팅 (오늘과 일주일 후)
+        document.addEventListener('DOMContentLoaded', () => {
+            const today = new Date();
+            const nextWeek = new Date(today);
+            nextWeek.setDate(today.getDate() + 5);
+
+            document.getElementById('startDate').value = today.toISOString().split('T')[0];
+            document.getElementById('endDate').value = nextWeek.toISOString().split('T')[0];
+        });
+
+        // 모의 국가 및 도시 정보 데이터베이스 (15개 이상 도시 구성)
+        const RAW_DESTINATIONS = [
+            {
+                country: "일본",
+                city: "후쿠오카",
+                code: "FUK",
+                baseFlightPrice: 210000,
+                description: "가장 짧은 비행으로 즐기는 식도락과 쇼핑의 성지! 부담 없이 가볍게 다녀오기 제격입니다.",
+                image: "https://images.unsplash.com/photo-1542044896530-05d85be9b11a?auto=format&fit=crop&w=800&q=80",
+                badge: "최단 거리 초특가",
+                tags: ["온천", "식도락", "쇼핑"]
+            },
+            {
+                country: "일본",
+                city: "오사카",
+                code: "KIX",
+                baseFlightPrice: 280000,
+                description: "도톤보리의 화려한 야경, 유니버설 스튜디오 등 언제 방문해도 만족스러운 스테디셀러 여행지.",
+                image: "https://images.unsplash.com/photo-1590253187631-6f984d02f1f4?auto=format&fit=crop&w=800&q=80",
+                badge: "꾸준한 인기 NO.1",
+                tags: ["테마파크", "가족여행", "오코노미야끼"]
+            },
+            {
+                country: "일본",
+                city: "도쿄",
+                code: "NRT",
+                baseFlightPrice: 320000,
+                description: "쇼핑, 디즈니랜드, 도심 마천루와 전통 명소가 가득한 트렌디 디자인 도시의 정수.",
+                image: "https://images.unsplash.com/photo-1540959733332-eab4deceeaf7?auto=format&fit=crop&w=800&q=80",
+                badge: "트렌디 대도시",
+                tags: ["도심관광", "쇼핑", "디즈니랜드"]
+            },
+            {
+                country: "일본",
+                city: "삿포로",
+                code: "CTS",
+                baseFlightPrice: 380000,
+                description: "사계절이 뚜렷한 청청 자연과 신선한 대게 요리, 이국적인 풍경을 동시에 안겨주는 여행지.",
+                image: "https://images.unsplash.com/photo-1578507012934-884c2a64747e?auto=format&fit=crop&w=800&q=80",
+                badge: "맥주와 자연 경관",
+                tags: ["눈꽃축제", "라멘", "자연유산"]
+            },
+            {
+                country: "일본",
+                city: "오키나와",
+                code: "OKA",
+                baseFlightPrice: 270000,
+                description: "동양의 하와이로 통하는 아름다운 산호해변과 거대한 츄라우미 수족관을 보유한 힐링 휴양지.",
+                image: "https://images.unsplash.com/photo-1553621042-f6e147245754?auto=format&fit=crop&w=800&q=80",
+                badge: "동양의 하와이",
+                tags: ["츄라우미", "스노클링", "해안도로"]
+            },
+            {
+                country: "대만",
+                city: "타이베이",
+                code: "TPE",
+                baseFlightPrice: 290000,
+                description: "2시간 대의 짧은 비행으로 즐기는 미식 천국! 우수한 치안과 편리한 대중교통으로 자유여행 초보에게 완벽합니다.",
+                image: "https://images.unsplash.com/photo-1504618223053-559bdef9dd5a?auto=format&fit=crop&w=800&q=80",
+                badge: "자유여행 입문 정석",
+                tags: ["야시장", "지우펀", "망고빙수"]
+            },
+            {
+                country: "중국",
+                city: "상하이",
+                code: "PVG",
+                baseFlightPrice: 230000,
+                description: "상징적인 와이탄 마천루 야경과 세련된 상하이 디즈니랜드를 가장 빠르게 방문할 수 있는 비행길.",
+                image: "https://images.unsplash.com/photo-1508672019048-805c876b67e2?auto=format&fit=crop&w=800&q=80",
+                badge: "이국적 메트로폴리스",
+                tags: ["야경", "디즈니랜드", "딤섬"]
+            },
+            {
+                country: "홍콩",
+                city: "홍콩",
+                code: "HKG",
+                baseFlightPrice: 290000,
+                description: "홍콩 영화 감성 가득한 이색 야경과 길거리 푸드, 디즈니랜드 투어를 완벽히 만끽하세요.",
+                image: "https://images.unsplash.com/photo-1506158669146-619067262a3b?auto=format&fit=crop&w=800&q=80",
+                badge: "화려한 심포니",
+                tags: ["야경쇼", "딤섬투어", "감성여행"]
+            },
+            {
+                country: "베트남",
+                city: "다낭",
+                code: "DAD",
+                baseFlightPrice: 340000,
+                description: "푸른 해변과 다채로운 관광 명소가 어우러진 휴양 도시. 부담 없는 저가 항공편이 많이 취항합니다.",
+                image: "https://images.unsplash.com/photo-1555939594-58d7cb561ad1?auto=format&fit=crop&w=800&q=80",
+                badge: "가장 여유로운 휴양지",
+                tags: ["휴양", "호이안 올드타운", "해변"]
+            },
+            {
+                country: "베트남",
+                city: "하노이",
+                code: "HAN",
+                baseFlightPrice: 310000,
+                description: "깊은 역사와 프랑스식 감성이 녹아든 도심 환경, 하롱베이 국립공원 투어 등 볼거리가 넘치는 여행지.",
+                image: "https://images.unsplash.com/photo-1509060464153-44667396260f?auto=format&fit=crop&w=800&q=80",
+                badge: "역사와 문화 탐방",
+                tags: ["하롱베이", "쌀국수", "로컬 감성"]
+            },
+            {
+                country: "베트남",
+                city: "호치민",
+                code: "SGN",
+                baseFlightPrice: 350000,
+                description: "메콩강 줄기의 전통과 역동적인 현대 베트남 라이프가 믹스된 화려하고 젊은 기운의 대도시.",
+                image: "https://images.unsplash.com/photo-1509060464153-44667396260f?auto=format&fit=crop&w=800&q=80",
+                badge: "역동적 남부 허브",
+                tags: ["메콩강", "커피스트리트", "야외스파"]
+            },
+            {
+                country: "태국",
+                city: "방콕",
+                code: "BKK",
+                baseFlightPrice: 390000,
+                description: "전 세계 여행자들의 허브! 가성비 넘치는 길거리 음식과 찬란하게 빛나는 야경 투어의 진수를 만나보세요.",
+                image: "https://images.unsplash.com/photo-1508009603885-50cf7c579365?auto=format&fit=crop&w=800&q=80",
+                badge: "방랑자의 로망",
+                tags: ["야시장", "마사지", "루프탑"]
+            },
+            {
+                country: "필리핀",
+                city: "세부",
+                code: "CEB",
+                baseFlightPrice: 320000,
+                description: "스노클링, 고래상어 투어 등 액티브하고 다이내믹한 해양 레포츠를 가장 가성비 좋게 즐길 수 있는 비행 노선.",
+                image: "https://images.unsplash.com/photo-1516690561799-46d8f74f90f6?auto=format&fit=crop&w=800&q=80",
+                badge: "액티비티 추천 노선",
+                tags: ["스노클링", "고래상어", "호핑투어"]
+            },
+            {
+                country: "필리핀",
+                city: "마닐라",
+                code: "MNL",
+                baseFlightPrice: 260000,
+                description: "스페인 풍 인트라무로스 유적과 서유럽 느낌의 대성당, 거대한 도심 쇼핑센터를 만나는 도심 루트.",
+                image: "https://images.unsplash.com/photo-1518156677180-95a2893f3e9f?auto=format&fit=crop&w=800&q=80",
+                badge: "이국적 고도시 혼합",
+                tags: ["성당투어", "초대형몰", "골프여행"]
+            },
+            {
+                country: "싱가포르",
+                city: "싱가포르",
+                code: "SIN",
+                baseFlightPrice: 480000,
+                description: "완벽하고 쾌적한 치안을 보장하는 스마트 테마 파크의 성지. 마리나 베이와 쥬얼 창이 공항이 압권입니다.",
+                image: "https://images.unsplash.com/photo-1525625293386-3f8f99389edd?auto=format&fit=crop&w=800&q=80",
+                badge: "최상의 안전 & 청결",
+                tags: ["가든스바이더베이", "유니버설", "안전함"]
+            },
+            {
+                country: "미국",
+                city: "괌",
+                code: "GUM",
+                baseFlightPrice: 420000,
+                description: "미국령의 에메랄드빛 해변 휴양지. 4시간 남짓의 직항 노선으로 가족 단위 휴양에 가장 어울리는 비행 루트.",
+                image: "https://images.unsplash.com/photo-1540206395-68808572332f?auto=format&fit=crop&w=800&q=80",
+                badge: "가족형 클래식 휴양",
+                tags: ["면세쇼핑", "가족여행", "렌터카"]
+            }
+        ];
+
+        // 날짜 차이 계산 함수
+        function getDaysDiff(start, end) {
+            const diffTime = Math.abs(end - start);
+            return Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+        }
+
+        // 항공 데이터 연산 알고리즘 (날짜 기반 변동성 및 주말 가중치 반영)
+        function calculateTripPrices(startDateStr, endDateStr) {
+            const start = new Date(startDateStr);
+            const end = new Date(endDateStr);
+            const duration = getDaysDiff(start, end);
+
+            // 주말 가중치 계산 (출발 혹은 도착이 금, 토, 일에 걸릴 경우)
+            const startDay = start.getDay(); // 0(일) ~ 6(토)
+            const endDay = end.getDay();
+            
+            let weekendSurcharge = 1.0;
+            if ([0, 5, 6].includes(startDay)) weekendSurcharge += 0.15; // 출발이 금/토/일
+            if ([0, 5, 6].includes(endDay)) weekendSurcharge += 0.10; // 복귀가 금/토/일
+
+            // 계절 가중치 (여름 성수기 7-8월, 겨울 성수기 12-1월 할증)
+            const startMonth = start.getMonth() + 1; // 1 ~ 12
+            let seasonalSurcharge = 1.0;
+            if ([7, 8, 12, 1].includes(startMonth)) {
+                seasonalSurcharge += 0.20; // 20% 극성수기 할증
+            } else if ([4, 5, 10].includes(startMonth)) {
+                seasonalSurcharge += 0.05; // 5% 연휴 할증
+            }
+
+            // 고유한 해시 시드 생성하여 일정 변동성 부여
+            const dateSeed = (start.getTime() + end.getTime()) % 10000;
+
+            return RAW_DESTINATIONS.map((dest, idx) => {
+                // 고유 요율 편차 생성 (-10% ~ +10%)
+                const variance = 1.0 + (((dateSeed + idx) % 21) - 10) / 100;
+                
+                // 최종 왕복 항공비
+                const flightCost = Math.round((dest.baseFlightPrice * weekendSurcharge * seasonalSurcharge * variance) / 1000) * 1000;
+
+                return {
+                    ...dest,
+                    calculatedFlight: flightCost,
+                    totalPrice: flightCost, // 오직 항공 가격만으로 최저가 산출
+                    duration: duration
+                };
+            });
+        }
+
+        // 여행 추천 메인 로직
+        function searchDestinations() {
+            const startDateVal = document.getElementById('startDate').value;
+            const endDateVal = document.getElementById('endDate').value;
+
+            if (!startDateVal || !endDateVal) {
+                showError("출발일과 도착일을 모두 입력해주세요.");
+                return;
+            }
+
+            const start = new Date(startDateVal);
+            const end = new Date(endDateVal);
+            const today = new Date();
+            today.setHours(0,0,0,0);
+
+            if (start < today) {
+                showError("출발일은 오늘 이후여야 합니다.");
+                return;
+            }
+
+            if (start >= end) {
+                showError("도착일은 출발일보다 늦은 날짜여야 합니다.");
+                return;
+            }
+
+            // UI 제어 (스피너 보이기, 결과 가리기)
+            document.getElementById('emptyState').classList.add('hidden');
+            document.getElementById('resultsSection').classList.add('hidden');
+            document.getElementById('loadingState').classList.remove('hidden');
+
+            setTimeout(() => {
+                // 시뮬레이션 후 결과 데이터 렌더링
+                const allResults = calculateTripPrices(startDateVal, endDateVal);
+                
+                // 항공 가격 기준 오름차순으로 정렬
+                allResults.sort((a, b) => a.totalPrice - b.totalPrice);
+                
+                // TOP 15 리스트 추출
+                const top15 = allResults.slice(0, 15);
+
+                renderResults(top15, startDateVal, endDateVal);
+
+                document.getElementById('loadingState').classList.add('hidden');
+                document.getElementById('resultsSection').classList.remove('hidden');
+                
+                // 결과 스크롤 이동
+                document.getElementById('resultsSection').scrollIntoView({ behavior: 'smooth' });
+            }, 1000);
+        }
+
+        // 결과 화면 렌더링
+        function renderResults(results, startStr, endStr) {
+            const periodText = document.getElementById('searchPeriodText');
+            periodText.innerHTML = `<span class="font-bold text-blue-600">${startStr.replace(/-/g, '.')}</span> ~ <span class="font-bold text-blue-600">${endStr.replace(/-/g, '.')}</span> 여정의 최저가 왕복 항공권 추천 순위입니다.`;
+
+            const listContainer = document.getElementById('destinationsList');
+            listContainer.innerHTML = '';
+
+            results.forEach((dest, index) => {
+                // 순위 컬러칩 정의
+                let badgeColor = 'bg-slate-100 text-slate-600';
+                if (index === 0) badgeColor = 'bg-amber-400 text-amber-950 font-black';
+                else if (index === 1) badgeColor = 'bg-slate-300 text-slate-800 font-black';
+                else if (index === 2) badgeColor = 'bg-amber-600 text-amber-50 font-black';
+
+                const cardHtml = `
+                    <div class="bg-white rounded-3xl overflow-hidden shadow-md hover:shadow-xl transition-all duration-300 border border-slate-100 flex flex-col lg:flex-row transform hover:-translate-y-1">
+                        <!-- 이미지 섹션 -->
+                        <div class="lg:w-2/5 relative h-52 lg:h-auto min-h-[200px] overflow-hidden">
+                            <img src="${dest.image}" alt="${dest.city}" class="w-full h-full object-cover transition-transform duration-500 hover:scale-110" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1488646953014-85cb44e25828?auto=format&fit=crop&w=800&q=80'">
+                            <span class="absolute top-4 left-4 z-10 w-9 h-9 rounded-full ${badgeColor} flex items-center justify-center text-sm shadow-md">
+                                ${index + 1}
+                            </span>
+                            <span class="absolute bottom-4 left-4 bg-black/60 text-white backdrop-blur-md px-3 py-1 rounded-xl text-xs font-semibold">
+                                <i class="fa-solid fa-plane mr-1"></i>왕복 비행 약 ${dest.city === '후쿠오카' || dest.city === '오사카' ? '1.5~2' : dest.city === '대만' || dest.city === '상하이' ? '2.5' : '4.5~5'}시간
+                            </span>
+                        </div>
+
+                        <!-- 텍스트/상세 섹션 -->
+                        <div class="p-6 lg:w-3/5 flex flex-col justify-between">
+                            <div>
+                                <div class="flex items-center gap-2 flex-wrap mb-2">
+                                    <span class="bg-blue-50 text-blue-600 text-xs font-bold px-2.5 py-1 rounded-full">
+                                        ${dest.badge}
+                                    </span>
+                                    <div class="flex gap-1">
+                                        ${dest.tags.map(tag => `<span class="bg-slate-100 text-slate-500 text-[10px] px-2 py-0.5 rounded-md">#${tag}</span>`).join('')}
+                                    </div>
+                                </div>
+                                
+                                <div class="flex items-baseline gap-2 mb-2">
+                                    <h4 class="text-2xl font-black text-slate-900">${dest.country} · ${dest.city}</h4>
+                                    <span class="text-xs text-slate-400 font-mono">${dest.code}공항</span>
+                                </div>
+
+                                <p class="text-sm text-slate-500 leading-relaxed mb-6">
+                                    ${dest.description}
+                                </p>
+                            </div>
+
+                            <!-- 가격 상세 및 실시간 연동 결과 -->
+                            <div class="border-t border-slate-100 pt-4 mt-auto">
+                                <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                                    <div>
+                                        <p class="text-[11px] text-slate-400">인천 기점 왕복 최저가 (공항세/유류세 포함)</p>
+                                        <p class="text-3xl font-black text-blue-600">${dest.calculatedFlight.toLocaleString()}<span class="text-sm font-bold text-slate-700">원 ~ / 1인</span></p>
+                                    </div>
+                                    <button onclick="openBookingHub('${dest.city}', '${dest.code}', '${startStr}', '${endStr}')" class="bg-slate-900 hover:bg-slate-800 text-white font-bold text-xs py-3.5 px-5 rounded-xl transition-all flex items-center justify-center gap-1.5 active:scale-95">
+                                        <i class="fa-solid fa-arrow-up-right-from-square"></i> 실시간 가격 조회 및 예약
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                `;
+                listContainer.insertAdjacentHTML('beforeend', cardHtml);
+            });
+        }
+
+        // 에러 알림창 제어
+        function showError(msg) {
+            document.getElementById('errorText').innerText = msg;
+            document.getElementById('errorModal').classList.remove('hidden');
+        }
+
+        function closeErrorModal() {
+            document.getElementById('errorModal').classList.add('hidden');
+        }
+
+        // 예약 모달 오픈 및 링크 바인딩
+        function openBookingHub(city, code, startDate, endDate) {
+            const bookingText = document.getElementById('bookingText');
+            bookingText.innerHTML = `선택하신 <strong>인천(ICN) ↔ ${city}(${code})</strong> 왕복 항공권 일정을 실제 예약 플랫폼에서 확인해 보세요! 해당 기간의 라이브 최저가와 발권 가능 옵션을 즉시 안내받으실 수 있습니다.`;
+
+            // 네이버 항공권 형식에 맞춰 날짜 파싱 (예: 20260715)
+            const parsedStart = startDate.replace(/-/g, '');
+            const parsedEnd = endDate.replace(/-/g, '');
+            const naverUrl = `https://m-flight.naver.com/flights/international/ICN-${code}-${parsedStart}-${parsedEnd}?adult=1&isDirect=true`;
+
+            // 구글 플라이트 형식 바인딩
+            const googleUrl = `https://www.google.com/travel/flights?q=Flights%20from%20ICN%20to%20${code}%20on%20${startDate}%20through%20${endDate}`;
+
+            // 버튼에 실제 하이퍼링크 세팅 및 클릭 시 새 탭 이동
+            document.getElementById('naverBtn').onclick = () => {
+                window.open(naverUrl, '_blank');
+            };
+            document.getElementById('googleBtn').onclick = () => {
+                window.open(googleUrl, '_blank');
+            };
+
+            document.getElementById('bookingModal').classList.remove('hidden');
+        }
+
+        function closeBookingModal() {
+            document.getElementById('bookingModal').classList.add('hidden');
+        }
+    </script>
+</body>
+</html>
